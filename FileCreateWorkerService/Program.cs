@@ -4,12 +4,19 @@ using RabbitMQ.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Configuration;
+using FileCreateWorkerService.Models;
+using Microsoft.EntityFrameworkCore;
 
 IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((hostContext, services) =>
     {
       
         IConfiguration configuration = hostContext.Configuration;
+
+        services.AddDbContext<AdventureWorks2019Context>(options =>
+        {
+            options.UseSqlServer(configuration.GetConnectionString("SqlServer"));
+        });
 
         // RabbitMQ baðlantý ayarlarýný yapýlandýrma dosyasýndan çekiyoruz
         var rabbitMqConnectionString = configuration.GetConnectionString("RabbitMQ");
