@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using RabbitMqWeb.ExcelCreate.Models;
+using RabbitMqWeb.ExcelCreate.Services;
 
 namespace RabbitMqWeb.ExcelCreate.Controllers
 {
@@ -10,11 +11,12 @@ namespace RabbitMqWeb.ExcelCreate.Controllers
     {
         private readonly AppDbContext _context;
         private readonly UserManager<IdentityUser> _userManager;
-
-        public ProductController(UserManager<IdentityUser> userManager, AppDbContext context)
+        private readonly RabbitMQPublisher _rabbitMQPublisher;
+        public ProductController(UserManager<IdentityUser> userManager, AppDbContext context, RabbitMQPublisher rabbitMQPublisher)
         {
             _userManager = userManager;
             _context = context;
+            _rabbitMQPublisher = rabbitMQPublisher;
         }
 
         //sadece login olan kullanıcılar bu sayfayı görebilir
@@ -45,6 +47,13 @@ namespace RabbitMqWeb.ExcelCreate.Controllers
             await _context.SaveChangesAsync();
 
             //rabbitmq'ya mesaj gönderiyoruz.
+
+            _rabbitMQPublisher.Publish(new Shared.CreateExcelMessage()
+            {
+                FileId = userFile.Id,
+                UserId = user.Id
+            });
+
             TempData["StartCreatingExcel"] = true; //bir requestten başka bir requeste data taşımak için tempdata kullanıyoruz.
 
             return RedirectToAction(nameof(Files));
