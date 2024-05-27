@@ -365,3 +365,5 @@ FodyWeavers.xsd
 /RabbitMQExcelApp.sln
 /RabbitMqWeb.ExcelCreate/appsettings.json
 /RabbitMqWeb.ExcelCreate/appsettings.json
+/FileCreateWorkerService/appsettings.json
+/RabbitMqWeb.ExcelCreate/appsettings.Development.json
