@@ -361,3 +361,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/RabbitMQExcelApp.sln
+/RabbitMQExcelApp.sln
+/RabbitMqWeb.ExcelCreate/appsettings.json
+/RabbitMqWeb.ExcelCreate/appsettings.json
