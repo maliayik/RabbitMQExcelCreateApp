@@ -10,6 +10,7 @@ namespace RabbitMqWeb.ExcelCreate.Controllers
     public class FilesController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private ILogger _logger;
 
         public FilesController(AppDbContext context)
         {
@@ -22,28 +23,37 @@ namespace RabbitMqWeb.ExcelCreate.Controllers
         [HttpPost]
         public async Task<IActionResult> Upload(IFormFile file,int fileId)
         {
-            if (file is not { Length: > 0 }) return BadRequest();
+            try
+            {
+                if (file is not { Length: > 0 }) return BadRequest();
 
-            var userFile = await _context.UserFiles.FirstAsync(x => x.Id == fileId);
+                var userFile = await _context.UserFiles.FirstAsync(x => x.Id == fileId);
 
-            var filePath=userFile.FileName + Path.GetExtension(file.FileName);
+                var filePath = userFile.FileName + Path.GetExtension(file.FileName);
 
-            var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/files",filePath);
+                var path = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/files", filePath);
 
-            using FileStream stream= new(path, FileMode.Create);
+                using FileStream stream = new(path, FileMode.Create);
 
-            await file.CopyToAsync(stream);
+                await file.CopyToAsync(stream);
 
-            userFile.CreatedDate = DateTime.Now;
-            userFile.FilePath = filePath;
-            userFile.FileStatus=FileStatus.Completed;
+                userFile.CreatedDate = DateTime.Now;
+                userFile.FilePath = filePath;
+                userFile.FileStatus = FileStatus.Completed;
 
-            await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync();
 
-            return Ok();
+                return Ok();
 
-            //SignalR notification oluşturulacak
-        
+                //SignalR notification oluşturulacak
+            }
+            catch (Exception ex)
+            {
+                // Hata meydana gelirse loglama yapın
+                _logger.LogError(ex, "Upload method encountered an error: {ErrorMessage}", ex.Message);
+                return StatusCode(500, "An error occurred while processing the request.");
+            }
+
         }
     }
 }

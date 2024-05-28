@@ -19,12 +19,11 @@ namespace FileCreateWorkerService
         private readonly IServiceProvider _serviceProvider;
         private IModel _channel;
 
-        public Worker(ILogger<Worker> logger, RabbitMQClientService rabbitMQClientService, IServiceProvider serviceProvider, IModel channel)
+        public Worker(ILogger<Worker> logger, RabbitMQClientService rabbitMQClientService, IServiceProvider serviceProvider)
         {
             _logger = logger;
             _rabbitMQClientService = rabbitMQClientService;
             _serviceProvider = serviceProvider;
-            _channel = channel;
         }
 
         public override Task StartAsync(CancellationToken cancellationToken)
@@ -39,9 +38,11 @@ namespace FileCreateWorkerService
 
 
 
-        protected override  Task ExecuteAsync(CancellationToken stoppingToken)
+        protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
             var consumer = new AsyncEventingBasicConsumer(_channel);
+
+            _channel.BasicConsume(RabbitMQClientService.QueueName, false, consumer);
 
             consumer.Received += Consumer_Received;
             return Task.CompletedTask;
@@ -53,11 +54,11 @@ namespace FileCreateWorkerService
 
             var createExcelMessage = JsonSerializer.Deserialize<CreateExcelMessage>(Encoding.UTF8.GetString(@event.Body.ToArray()));
 
-            using var ms= new MemoryStream();
+            using var ms = new MemoryStream();
 
             //memoryde excelimizi olusturuyoruz.
-            var wb= new XLWorkbook();
-            var ds=new DataSet();
+            var wb = new XLWorkbook();
+            var ds = new DataSet();
             ds.Tables.Add(GetTable("Products"));
 
             wb.Worksheets.Add(ds);
@@ -65,33 +66,49 @@ namespace FileCreateWorkerService
 
             MultipartFormDataContent multipartFormDataContent = new();
 
-            multipartFormDataContent.Add(new ByteArrayContent(ms.ToArray()),"file", Guid.NewGuid().ToString()+".xlsx");
+            multipartFormDataContent.Add(new ByteArrayContent(ms.ToArray()), "file", Guid.NewGuid().ToString() + ".xlsx");
 
             var baseUrl = "https://localhost:44328/api/files";
+            HttpClientHandler handler = new HttpClientHandler();
+            handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
 
-            using(var httpClient = new HttpClient())
+            using (var httpClient = new HttpClient(handler))
             {
-                var response = await httpClient.PostAsync($"{baseUrl}?fileýd={createExcelMessage.FileId}", multipartFormDataContent);
-
-                if(response.IsSuccessStatusCode)
+                try
                 {
-                    _logger.LogInformation($"File ( Id : {createExcelMessage.FileId}) was created by successful");
-                    _channel.BasicAck(@event.DeliveryTag, false);
+                    _logger.LogInformation("Sending HTTP POST request to create file...");
+
+                    var response = await httpClient.PostAsync($"{baseUrl}?fileId={createExcelMessage.FileId}", multipartFormDataContent);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+                        _logger.LogInformation($"File ( Id : {createExcelMessage.FileId}) was created successfully");
+                        _channel.BasicAck(@event.DeliveryTag, false);
+                    }
+                    else
+                    {
+                        _logger.LogError($"Failed to create file (Id: {createExcelMessage.FileId}). Status Code: {response.StatusCode}, Reason: {response.ReasonPhrase}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"Exception occurred while sending HTTP POST request: {ex.Message}");
                 }
             }
-
         }
+
+
 
         private DataTable GetTable(string tableName)
         {
             List<Product> products;
 
             //dbye býuradan baðlanýyoruz
-            using(var scope = _serviceProvider.CreateScope())
+            using (var scope = _serviceProvider.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<AdventureWorks2019Context>();
                 products = context.Products.ToList();
-            }   
+            }
 
             //memoryde istediðimiz verilerle bir tablo olusturuyoruz.
             DataTable table = new DataTable(tableName);
