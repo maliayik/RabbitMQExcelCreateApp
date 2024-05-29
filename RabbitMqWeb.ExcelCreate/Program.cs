@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using RabbitMQ.Client;
+using RabbitMqWeb.ExcelCreate.Hubs;
 using RabbitMqWeb.ExcelCreate.Models;
 using RabbitMqWeb.ExcelCreate.Services;
 using System.Configuration;
@@ -16,6 +17,7 @@ builder.Services.AddSingleton(sp=> new ConnectionFactory() { Uri=new Uri(builder
 builder.Services.AddSingleton <RabbitMQClientService>();
 
 builder.Services.AddSingleton<RabbitMQPublisher>();
+builder.Services.AddSignalR();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
@@ -72,7 +74,9 @@ app.UseRouting();
 app.UseAuthentication(); //üyelik sistemi oldugu için ekledik.
 app.UseAuthorization();
 
-app.MapControllerRoute(
+app.MapHub<MyHub>("/MyHub");
+
+app.MapControllerRoute(    
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 

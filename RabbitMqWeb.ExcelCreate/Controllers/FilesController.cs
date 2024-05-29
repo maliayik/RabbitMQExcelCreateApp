@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using RabbitMqWeb.ExcelCreate.Hubs;
 using RabbitMqWeb.ExcelCreate.Models;
 
 namespace RabbitMqWeb.ExcelCreate.Controllers
@@ -11,10 +13,12 @@ namespace RabbitMqWeb.ExcelCreate.Controllers
     {
         private readonly AppDbContext _context;
         private ILogger _logger;
+        private readonly IHubContext<MyHub> _hubContext;
 
-        public FilesController(AppDbContext context)
+        public FilesController(AppDbContext context, IHubContext<MyHub> hubContext)
         {
             _context = context;
+            _hubContext = hubContext;
         }
 
         /// <summary>
@@ -42,10 +46,13 @@ namespace RabbitMqWeb.ExcelCreate.Controllers
                 userFile.FileStatus = FileStatus.Completed;
 
                 await _context.SaveChangesAsync();
+                              
+
+                //SignalR ile sisteme authontication olmuş kullanıcıya dosya oluşturulduğu bilgisini gönderiyoruz
+                await _hubContext.Clients.User(userFile.UserId).SendAsync("CompletedFile");
 
                 return Ok();
 
-                //SignalR notification oluşturulacak
             }
             catch (Exception ex)
             {
